@@ -1,0 +1,6 @@
+- dearpygui - GUI library
+- pylsl - for streaming data into the program
+- numpy -  make numbers go real fast 
+
+install with command below:
+pip install dearpygui pylsl numpy
