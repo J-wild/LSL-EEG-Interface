@@ -5,25 +5,35 @@ import pylsl
 import numpy as np
 from MathsStuff import NumpyBuffer
 
+'''
+baisc structure 
+
+Data aquesition thread ----> Buffer ----> Update Plot Thread
+
+main program does what it wants
+
+'''
+
 class EEG_Application:
     def __init__(self):
-      self.UPT = threading.Thread(target = self.update_eeg_plots, name = "UPT", daemon=True)
+      self.UPT = threading.Thread(target = self.update_eeg_plots, name = "UPT", daemon=True)  # init the Update Plot Thread
       self.stream = stream()
-      
       self.setup_ui()
       
-
-
     def setup_ui(self):
         
         dpg.create_context()
-        dpg.create_viewport(title='GraphEEG', width=600, height=400)
+        dpg.create_viewport(title='GraphEEG', width=600, height=400)                                        
+
         with dpg.window(label="Control Pannel", tag="Main", min_size=(200,200)):
-           
+
             dpg.add_button(label="Scan Streams", callback= self.start_streams) # button to Scan for streams
+
             dpg.add_slider_int(label = "Polling Rate Hz", width= 400, callback=self.change_polling_rate, default_value= 10,  min_value= 1, max_value= 100, tag = "polling_slider")
         
+        
         dpg.add_window(label= "EEG Data", tag = "data_window", show = False, autosize= False, width= 800, pos=(200, 0))
+       
         dpg.setup_dearpygui()
         dpg.show_viewport()
     
@@ -93,8 +103,7 @@ class EEG_Application:
             series_tag = f"series_{i}"
             
             # Store the tags for later use
-            self.plot_tags.append(plot_tag)
-            self.series_tags.append(series_tag)
+            
             
             # Initialize buffers for this channel
             
@@ -131,11 +140,6 @@ class EEG_Application:
                     tag=series_tag
                 )
         
-
-
-            
-            
-      
     def update_eeg_plots(self):
         while self.stream.streaming:
             
@@ -152,18 +156,11 @@ class EEG_Application:
                 dpg.set_value(f'series_{i}', [time_buffer, channel_A_buffer])
                 dpg.set_value(f'singleplot_series_{i}', [time_buffer, channel_A_buffer])
                 
-
-        
-        #print(len(channel_A_buffer))
-        
-
     def run(self):
         
-        
-        #secondary main loop for inputs
-        while dpg.is_dearpygui_running():
 
-            
+        #main thread does absoloutly shit all 
+        while dpg.is_dearpygui_running():
 
             dpg.render_dearpygui_frame()
         
@@ -175,7 +172,7 @@ class EEG_Application:
 class stream:
     def __init__(self):
 
-        self.DAT = threading.Thread(target = self.data_acquisition_loop, name = "DAT")
+        self.DAT = threading.Thread(target = self.data_acquisition_loop, name = "DAT", daemon= True) # init the Data Aquesition Thread
         self.inlet = None
         self.streaming = False
         self.EEGBuffer = NumpyBuffer()
@@ -185,17 +182,17 @@ class stream:
         self.data_poll_rate = rate
 
     def get_buffer(self, channel_num):
-        
         return self.EEGBuffer.get_channel_data(channel_num)
     
     def scan_streams(self):
-    
+        #go sniffing through the air for data streams and add them to the list
         streams = pylsl.resolve_streams(wait_time=1)
+
         if not streams:
             print(f"No EEG streams found. Please connect the headset through the NIC software and ensure the Data streaming through LSL is selected")
             return
         
-
+        #go through all the streams and print some details about them
         for i, stream in enumerate(streams):
             
             inlet = pylsl.StreamInlet(stream)
@@ -204,7 +201,8 @@ class stream:
             print("Found stream '%s' of type '%s'" % (inf.name(), inf.type()))
             print("  with %d channels at %.2f Hz" % (inf.channel_count(),inf.nominal_srate()))
             print("---------------------------------")
-
+        
+        # go through those streams again and select the EEG one 
         for i, stream in enumerate(streams):
             inlet = pylsl.StreamInlet(stream)
             inf = inlet.info()
@@ -221,19 +219,15 @@ class stream:
         self.streaming = True
         print("Using stream '%s' of type '%s' at '%.2f'Hz" % (inf.name(), inf.type(), inf.nominal_srate()))
         
-        self.initialize_buffers()
-
         self.DAT.start()
     
     def stop_stream(self):
-        
         self.streaming = False
         self.DAT.join()
+        exit()
+
         
-    def initialize_buffers(self):
-
-       print("buffer initialized")
-
+  
     def data_acquisition_loop(self):
         """Background thread for acquiring EEG data"""
         print("Starting EEG data acquisition...")
